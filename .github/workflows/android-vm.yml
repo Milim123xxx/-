@@ -5,29 +5,26 @@ on:
 
 jobs:
   run-android:
-    name: Boot Android VM
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
-      - name: 🧰 ติดตั้ง QEMU
+      - name: 🧰 Install QEMU
         run: |
           sudo apt update
-          sudo apt install -y qemu-kvm wget unzip
+          sudo apt install -y qemu-kvm wget unzip curl
 
-      - name: 📥 ดาวน์โหลด Android ISO จาก Dropbox
+      - name: 📥 Download Android ISO
         run: |
           wget -O android.iso "https://www.dropbox.com/scl/fi/eh56gj9s3p4bsunciu3c2/android-x86_64-9.0-r2.iso?rlkey=kkuy6bqixv5cpumjbbxlgq3td&st=p7oumbo2&dl=1"
 
-      - name: 💾 สร้างดิสก์สำหรับ Android
-        run: |
-          qemu-img create -f qcow2 android.qcow2 8G
+      - name: 💾 Create disk
+        run: qemu-img create -f qcow2 android.qcow2 8G
 
-      - name: 🚀 รัน Android VM
+      - name: 🚀 Start Android VM
         run: |
           nohup qemu-system-x86_64 \
-            -m 2048 \
-            -smp 2 \
+            -m 2048 -smp 2 \
             -cdrom android.iso \
             -hda android.qcow2 \
             -boot d \
@@ -37,9 +34,13 @@ jobs:
             -cpu host \
             -name "Android Cloud VM" &
 
-      - name: 🔗 แสดงพอร์ต VNC
+      - name: 🌐 Expose port with ngrok
         run: |
-          echo "VM Android กำลังรันอยู่บนพอร์ต VNC :1"
-          echo "ใช้โปรแกรมเชื่อมต่อ VNC เช่น RealVNC หรือ noVNC"
-          echo "ตัวอย่าง URL สำหรับ noVNC:"
-          echo "https://novnc.com/noVNC/?autoconnect=true&host=127.0.0.1&port=5901"
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install ngrok -y
+
+          ngrok config add-authtoken ${{ secrets.NGROK_TOKEN }}
+          nohup ngrok tcp 5901 --region=ap > ngrok.log &
+          sleep 10
+          cat ngrok.log | grep "url="
