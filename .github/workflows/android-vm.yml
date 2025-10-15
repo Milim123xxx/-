@@ -1,0 +1,45 @@
+name: Android Cloud VM
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-android:
+    name: Boot Android VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: 🧰 ติดตั้ง QEMU
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-kvm wget unzip
+
+      - name: 📥 ดาวน์โหลด Android ISO จาก Dropbox
+        run: |
+          wget -O android.iso "https://www.dropbox.com/scl/fi/eh56gj9s3p4bsunciu3c2/android-x86_64-9.0-r2.iso?rlkey=kkuy6bqixv5cpumjbbxlgq3td&st=p7oumbo2&dl=1"
+
+      - name: 💾 สร้างดิสก์สำหรับ Android
+        run: |
+          qemu-img create -f qcow2 android.qcow2 8G
+
+      - name: 🚀 รัน Android VM
+        run: |
+          nohup qemu-system-x86_64 \
+            -m 2048 \
+            -smp 2 \
+            -cdrom android.iso \
+            -hda android.qcow2 \
+            -boot d \
+            -vnc :1 \
+            -net nic -net user \
+            -enable-kvm \
+            -cpu host \
+            -name "Android Cloud VM" &
+
+      - name: 🔗 แสดงพอร์ต VNC
+        run: |
+          echo "VM Android กำลังรันอยู่บนพอร์ต VNC :1"
+          echo "ใช้โปรแกรมเชื่อมต่อ VNC เช่น RealVNC หรือ noVNC"
+          echo "ตัวอย่าง URL สำหรับ noVNC:"
+          echo "https://novnc.com/noVNC/?autoconnect=true&host=127.0.0.1&port=5901"
